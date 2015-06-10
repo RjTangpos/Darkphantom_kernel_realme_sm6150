@@ -335,6 +335,30 @@ static inline int devfreq_get_freq_level(struct devfreq *devfreq,
 	return -EINVAL;
 }
 
+#if 1
+
+// mapping gpu level calculated linear conservation half curve values into a
+// bell curve of conservation  (lower is higher freq level)
+static int conservation_map_up[] = {15,15,10,4,5,6,12     ,5,5,5};
+static int conservation_map_down[] = {0,1,6,6,5,0,0     ,5,5,5};
+
+// make boost multiplication/division depending on current lvl, dampen the high freq up scaling! (lower is higher freq level)
+static int lvl_multiplicator_map_1[] = {5,5,6,8,9,1,1    ,1,1};
+static int lvl_divider_map_1[] = {10,10,10,10,10,1,1    ,1,1};
+
+// for boost == 2 -- boost divide on the low spectrum, dampen the lower freq values, unneeded to boost the low freq spectrum so much at start
+static int lvl_multiplicator_map_2[] = {9,1,1,1,1,10,8    ,1,1};
+static int lvl_divider_map_2[] = {10,1,1,1,1,14,12    ,1,1};
+
+// for boost == 3 -- boost divide on the low spectrum, dampen the lower freq values, unneeded to boost the low freq spectrum so much at start
+static int lvl_multiplicator_map_3[] = {10,1,1,1,1,11,9    ,1,1};
+static int lvl_divider_map_3[] = {10,1,1,1,1,15,13    ,1,1};
+
+#ifdef CONFIG_ADRENO_IDLER
+extern int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
+		 unsigned long *freq);
+#endif
+
 static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 {
 	int result = 0;
@@ -351,7 +375,21 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 		return result;
 	}
 
+	/* Prevent overflow */
+	if (stats.busy_time >= (1 << 24) || stats.total_time >= (1 << 24)) {
+		stats.busy_time >>= 7;
+		stats.total_time >>= 7;
+	}
+
 	*freq = stats.current_frequency;
+
+#ifdef CONFIG_ADRENO_IDLER
+	if (adreno_idler(stats, devfreq, freq)) {
+		/* adreno_idler has asked to bail out now */
+		return 0;
+	}
+#endif
+
 	priv->bin.total_time += stats.total_time;
 	priv->bin.busy_time += stats.busy_time;
 

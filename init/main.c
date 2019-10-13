@@ -209,13 +209,13 @@ EXPORT_SYMBOL(loops_per_jiffy);
 
 static int __init debug_kernel(char *str)
 {
-	console_loglevel = CONSOLE_LOGLEVEL_DEBUG;
+	console_loglevel = 0;
 	return 0;
 }
 
 static int __init quiet_kernel(char *str)
 {
-	console_loglevel = CONSOLE_LOGLEVEL_QUIET;
+	console_loglevel = 0;
 	return 0;
 }
 

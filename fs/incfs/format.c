@@ -616,9 +616,10 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
 				&handler->md_buffer.blockmap, handler);
 		break;
 	case INCFS_MD_FILE_ATTR:
-		if (handler->handle_file_attr)
-			res = handler->handle_file_attr(
-				&handler->md_buffer.file_attr, handler);
+		/*
+		 * File attrs no longer supported, ignore section for
+		 * compatibility
+		 */
 		break;
 	case INCFS_MD_SIGNATURE:
 		if (handler->handle_signature)

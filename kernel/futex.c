@@ -2573,6 +2573,7 @@ retry:
 	 * itself.
 	 */
 	pi_state_update_owner(pi_state, newowner);
+	raw_spin_unlock_irq(&pi_state->pi_mutex.wait_lock);
 
 	return argowner == current;
 

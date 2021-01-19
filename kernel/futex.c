@@ -2567,7 +2567,6 @@ retry:
 	 * itself.
 	 */
 	pi_state_update_owner(pi_state, newowner);
-	raw_spin_unlock_irq(&pi_state->pi_mutex.wait_lock);
 
 	return argowner == current;
 
@@ -2615,24 +2614,6 @@ handle_err:
 	/* Retry if err was -EAGAIN or the fault in succeeded */
 	if (!err)
 		goto retry;
-
-	/*
-	 * fault_in_user_writeable() failed so user state is immutable. At
-	 * best we can make the kernel state consistent but user state will
-	 * be most likely hosed and any subsequent unlock operation will be
-	 * rejected due to PI futex rule [10].
-	 *
-	 * Ensure that the rtmutex owner is also the pi_state owner despite
-	 * the user space value claiming something different. There is no
-	 * point in unlocking the rtmutex if current is the owner as it
-	 * would need to wait until the next waiter has taken the rtmutex
-	 * to guarantee consistent state. Keep it simple. Userspace asked
-	 * for this wreckaged state.
-	 *
-	 * The rtmutex has an owner - either current or some other
-	 * task. See the EAGAIN loop above.
-	 */
-	pi_state_update_owner(pi_state, rt_mutex_owner(&pi_state->pi_mutex));
 
 	return err;
 }

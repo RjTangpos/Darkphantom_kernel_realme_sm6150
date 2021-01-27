@@ -117,6 +117,7 @@
 enum incfs_metadata_type {
 	INCFS_MD_NONE = 0,
 	INCFS_MD_BLOCK_MAP = 1,
+	INCFS_MD_FILE_ATTR = 2,
 	INCFS_MD_SIGNATURE = 3
 };
 
@@ -273,6 +274,8 @@ struct metadata_handler {
 	int (*handle_blockmap)(struct incfs_blockmap *bm,
 			       struct metadata_handler *handler);
 	int (*handle_file_attr)(struct incfs_file_attr *fa,
+				 struct metadata_handler *handler);
+	int (*handle_signature)(struct incfs_file_signature *sig,
 				 struct metadata_handler *handler);
 };
 #define INCFS_MAX_METADATA_RECORD_SIZE \

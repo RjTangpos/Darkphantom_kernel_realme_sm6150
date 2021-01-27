@@ -246,7 +246,17 @@ struct data_file {
 	/* Total number of blocks, data + hash */
 	int df_total_block_count;
 
-	struct file_attr n_attr;
+	/* For mapped files, the offset into the actual file */
+	loff_t df_mapped_offset;
+
+	/* Number of data blocks written to file */
+	atomic_t df_data_blocks_written;
+
+	/* Number of data blocks in the status block */
+	u32 df_initial_data_blocks_written;
+
+	/* Offset to status metadata header */
+	loff_t df_status_offset;
 
 	struct mtree *df_hash_tree;
 

@@ -191,28 +191,8 @@ out:
 
 void incfs_free_data_file(struct data_file *df)
 {
-	u32 blocks_written;
-
 	if (!df)
 		return;
-
-	blocks_written = atomic_read(&df->df_data_blocks_written);
-	if (blocks_written != df->df_initial_data_blocks_written) {
-		struct backing_file_context *bfc = df->df_backing_file_context;
-		int error = -1;
-
-		if (bfc && !mutex_lock_interruptible(&bfc->bc_mutex)) {
-			error = incfs_write_status_to_backing_file(
-						df->df_backing_file_context,
-						df->df_status_offset,
-						blocks_written);
-			mutex_unlock(&bfc->bc_mutex);
-		}
-
-		if (error)
-			/* Nothing can be done, just warn */
-			pr_warn("incfs: failed to write status to backing file\n");
-	}
 
 	incfs_free_mtree(df->df_hash_tree);
 	for (i = 0; i < ARRAY_SIZE(df->df_segments); i++)
@@ -1060,6 +1040,8 @@ int incfs_process_new_data_block(struct data_file *df,
 	if (!error)
 		notify_pending_reads(mi, segment, block->block_index);
 
+	up_write(&segment->rwsem);
+
 unlock:
 	mutex_unlock(&segment->blockmap_mutex);
 	if (error)
@@ -1252,19 +1234,6 @@ out:
 	kfree(buf);
 
 	return error;
-}
-
-static int process_status_md(struct incfs_status *is,
-			     struct metadata_handler *handler)
-{
-	struct data_file *df = handler->context;
-
-	df->df_initial_data_blocks_written = le32_to_cpu(is->is_blocks_written);
-	atomic_set(&df->df_data_blocks_written,
-		   df->df_initial_data_blocks_written);
-	df->df_status_offset = handler->md_record_offset;
-
-	return 0;
 }
 
 int incfs_scan_metadata_chain(struct data_file *df)

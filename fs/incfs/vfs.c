@@ -1232,25 +1232,6 @@ static long ioctl_get_filled_blocks(struct file *f, void __user *arg)
 	return error;
 }
 
-static long ioctl_get_block_count(struct file *f, void __user *arg)
-{
-	struct incfs_get_block_count_args __user *args_usr_ptr = arg;
-	struct incfs_get_block_count_args args = {};
-	struct data_file *df = get_incfs_data_file(f);
-	int error;
-
-	if (!df)
-		return -EINVAL;
-
-	args.total_blocks_out = df->df_data_block_count;
-	args.filled_blocks_out = atomic_read(&df->df_data_blocks_written);
-
-	if (copy_to_user(args_usr_ptr, &args, sizeof(args)))
-		return -EFAULT;
-
-	return error;
-}
-
 static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 {
 	struct mount_info *mi = get_mount_info(file_superblock(f));

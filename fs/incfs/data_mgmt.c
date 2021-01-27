@@ -48,7 +48,6 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 	spin_lock_init(&mi->mi_log.rl_lock);
 	spin_lock_init(&mi->pending_read_lock);
 	INIT_LIST_HEAD(&mi->mi_reads_list_head);
-	spin_lock_init(&mi->mi_per_uid_read_timeouts_lock);
 
 	error = incfs_realloc_mount_info(mi, options);
 	if (error)
@@ -833,8 +832,7 @@ static void notify_pending_reads(struct mount_info *mi,
 }
 
 static int wait_for_data_block(struct data_file *df, int block_index,
-			       int min_time_ms, int min_pending_time_ms,
-			       int max_pending_time_ms,
+			       int timeout_ms,
 			       struct data_file_block *res_block)
 {
 	struct data_file_block block = {};
@@ -871,13 +869,11 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 
 	/* If the block was found, just return it. No need to wait. */
 	if (is_data_block_present(&block)) {
-		if (min_time_ms)
-			error = msleep_interruptible(min_time_ms);
 		*res_block = block;
-		return error;
+		return 0;
 	} else {
 		/* If it's not found, create a pending read */
-		if (max_pending_time_ms != 0) {
+		if (timeout_ms != 0) {
 			read = add_pending_read(df, block_index);
 			if (!read)
 				return -ENOMEM;
@@ -887,14 +883,11 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 		}
 	}
 
-	if (min_pending_time_ms)
-		time = ktime_get_ns();
-
 	/* Wait for notifications about block's arrival */
 	wait_res =
 		wait_event_interruptible_timeout(segment->new_data_arrival_wq,
-					(is_read_done(read)),
-					msecs_to_jiffies(max_pending_time_ms));
+						 (is_read_done(read)),
+						 msecs_to_jiffies(timeout_ms));
 
 	/* Woke up, the pending read is no longer needed. */
 	remove_pending_read(df, read);
@@ -910,16 +903,6 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 		 * comes while we wait.
 		 */
 		return wait_res;
-	}
-
-	if (min_pending_time_ms) {
-		time = div_u64(ktime_get_ns() - time, 1000000);
-		if (min_pending_time_ms > time) {
-			error = msleep_interruptible(
-						min_pending_time_ms - time);
-			if (error)
-				return error;
-		}
 	}
 
 	down_read(&segment->rwsem);
@@ -947,9 +930,8 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 }
 
 ssize_t incfs_read_data_file_block(struct mem_range dst, struct file *f,
-			int index, int min_time_ms,
-			int min_pending_time_ms, int max_pending_time_ms,
-			struct mem_range tmp)
+				   int index, int timeout_ms,
+				   struct mem_range tmp)
 {
 	loff_t pos;
 	ssize_t result;
@@ -968,8 +950,7 @@ ssize_t incfs_read_data_file_block(struct mem_range dst, struct file *f,
 	mi = df->df_mount_info;
 	bf = df->df_backing_file_context->bc_file;
 
-	result = wait_for_data_block(df, index, min_time_ms,
-			min_pending_time_ms, max_pending_time_ms, &block);
+	result = wait_for_data_block(df, index, timeout_ms, &block);
 	if (result < 0)
 		goto out;
 

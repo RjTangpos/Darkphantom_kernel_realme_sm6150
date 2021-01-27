@@ -97,6 +97,10 @@
 #define INCFS_IOC_CREATE_MAPPED_FILE \
 	_IOWR(INCFS_IOCTL_BASE_CODE, 35, struct incfs_create_mapped_file_args)
 
+/* Get number of blocks, total and filled */
+#define INCFS_IOC_GET_BLOCK_COUNT \
+	_IOR(INCFS_IOCTL_BASE_CODE, 36, struct incfs_get_block_count_args)
+
 /* ===== sysfs feature flags ===== */
 /*
  * Each flag is represented by a file in /sys/fs/incremental-fs/features
@@ -427,10 +431,6 @@ struct incfs_create_mapped_file_args {
 	__aligned_u64 source_offset;
 };
 
-/*
- * Get information about the blocks in this file
- * Argument for INCFS_IOC_GET_BLOCK_COUNT
- */
 struct incfs_get_block_count_args {
 	/* Total number of data blocks in the file */
 	__u32 total_data_blocks_out;
@@ -444,68 +444,5 @@ struct incfs_get_block_count_args {
 	/* Number of filled hash blocks in the file */
 	__u32 filled_hash_blocks_out;
 };
-
-/* Description of timeouts for one UID */
-struct incfs_per_uid_read_timeouts {
-	/* UID to apply these timeouts to */
-	__u32 uid;
-
-	/*
-	 * Min time to read any block. Note that this doesn't apply to reads
-	 * which are satisfied from the page cache.
-	 */
-	__u32 min_time_ms;
-
-	/*
-	 * Min time to satisfy a pending read. Must be >= min_time_ms. Any
-	 * pending read which is filled before this time will be delayed so
-	 * that the total read time >= this value.
-	 */
-	__u32 min_pending_time_ms;
-
-	/*
-	 * Max time to satisfy a pending read before the read times out.
-	 * If set to U32_MAX, defaults to mount options read_timeout_ms=
-	 * Must be >= min_pending_time_ms
-	 */
-	__u32 max_pending_time_ms;
-};
-
-/*
- * Get the read timeouts array
- * Argument for INCFS_IOC_GET_READ_TIMEOUTS
- */
-struct incfs_get_read_timeouts_args {
-	/*
-	 * A pointer to a buffer to fill with the current timeouts
-	 *
-	 * Equivalent to struct incfs_per_uid_read_timeouts *
-	 */
-	__aligned_u64 timeouts_array;
-
-	/* Size of above buffer in bytes */
-	__u32 timeouts_array_size;
-
-	/* Size used in bytes, or size needed if -ENOMEM returned */
-	__u32 timeouts_array_size_out;
-};
-
-/*
- * Set the read timeouts array
- * Arguments for INCFS_IOC_SET_READ_TIMEOUTS
- */
-struct incfs_set_read_timeouts_args {
-	/*
-	 * A pointer to an array containing the new timeouts
-	 * This will replace any existing timeouts
-	 *
-	 * Equivalent to struct incfs_per_uid_read_timeouts *
-	 */
-	__aligned_u64 timeouts_array;
-
-	/* Size of above array in bytes. Must be < 256 */
-	__u32 timeouts_array_size;
-};
-
 
 #endif /* _UAPI_LINUX_INCREMENTALFS_H */

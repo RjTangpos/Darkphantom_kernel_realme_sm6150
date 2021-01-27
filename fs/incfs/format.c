@@ -15,8 +15,7 @@
 #include "format.h"
 #include "data_mgmt.h"
 
-struct backing_file_context *incfs_alloc_bfc(struct mount_info *mi,
-					     struct file *backing_file)
+struct backing_file_context *incfs_alloc_bfc(struct file *backing_file)
 {
 	struct backing_file_context *result = NULL;
 
@@ -25,7 +24,6 @@ struct backing_file_context *incfs_alloc_bfc(struct mount_info *mi,
 		return ERR_PTR(-ENOMEM);
 
 	result->bc_file = get_file(backing_file);
-	result->bc_cred = mi->mi_owner;
 	mutex_init(&result->bc_mutex);
 	return result;
 }
@@ -89,6 +87,36 @@ static int truncate_backing_file(struct backing_file_context *bfc,
 	inode_unlock(inode);
 
 	return result;
+}
+
+static int write_to_bf(struct backing_file_context *bfc, const void *buf,
+			size_t count, loff_t pos)
+{
+	ssize_t res = incfs_kwrite(bfc->bc_file, buf, count, pos);
+
+	if (res < 0)
+		return res;
+	if (res != count)
+		return -EIO;
+	return 0;
+}
+
+static int append_zeros_no_fallocate(struct backing_file_context *bfc,
+				     size_t file_size, size_t len)
+{
+	u8 buffer[256] = {};
+	size_t i;
+
+	for (i = 0; i < len; i += sizeof(buffer)) {
+		int to_write = len - i > sizeof(buffer)
+			? sizeof(buffer) : len - i;
+		int err = write_to_bf(bfc, buffer, to_write, file_size + i);
+
+		if (err)
+			return err;
+	}
+
+	return 0;
 }
 
 /* Append a given number of zero bytes to the end of the backing file. */
@@ -339,6 +367,58 @@ err:
 	return result;
 }
 
+static int write_new_status_to_backing_file(struct backing_file_context *bfc,
+				       u32 data_blocks_written,
+				       u32 hash_blocks_written)
+{
+	int result;
+	loff_t rollback_pos;
+	struct incfs_status is = {
+		.is_header = {
+			.h_md_entry_type = INCFS_MD_STATUS,
+			.h_record_size = cpu_to_le16(sizeof(is)),
+		},
+		.is_data_blocks_written = cpu_to_le32(data_blocks_written),
+		.is_hash_blocks_written = cpu_to_le32(hash_blocks_written),
+	};
+
+	if (!bfc)
+		return -EFAULT;
+
+	LOCK_REQUIRED(bfc->bc_mutex);
+	rollback_pos = incfs_get_end_offset(bfc->bc_file);
+	result = append_md_to_backing_file(bfc, &is.is_header);
+	if (result)
+		truncate_backing_file(bfc, rollback_pos);
+
+	return result;
+}
+
+int incfs_write_status_to_backing_file(struct backing_file_context *bfc,
+				       loff_t status_offset,
+				       u32 data_blocks_written,
+				       u32 hash_blocks_written)
+{
+	struct incfs_status is;
+	int result;
+
+	if (status_offset == 0)
+		return write_new_status_to_backing_file(bfc,
+				data_blocks_written, hash_blocks_written);
+
+	result = incfs_kread(bfc->bc_file, &is, sizeof(is), status_offset);
+	if (result != sizeof(is))
+		return -EIO;
+
+	is.is_data_blocks_written = cpu_to_le32(data_blocks_written);
+	is.is_hash_blocks_written = cpu_to_le32(hash_blocks_written);
+	result = incfs_kwrite(bfc->bc_file, &is, sizeof(is), status_offset);
+	if (result != sizeof(is))
+		return -EIO;
+
+	return 0;
+}
+
 /*
  * Write a backing file header
  * It should always be called only on empty file.
@@ -510,7 +590,8 @@ int incfs_read_blockmap_entries(struct backing_file_context *bfc,
 	if (start_index < 0 || bm_base_off <= 0)
 		return -ENODATA;
 
-	result = incfs_kread(bfc, entries, bytes_to_read, bm_entry_off);
+	result = incfs_kread(bfc->bc_file, entries, bytes_to_read,
+			     bm_entry_off);
 	if (result < 0)
 		return result;
 	return result / sizeof(*entries);
@@ -526,7 +607,7 @@ int incfs_read_file_header(struct backing_file_context *bfc,
 	if (!bfc || !first_md_off)
 		return -EFAULT;
 
-	bytes_read = incfs_kread(bfc, &fh, sizeof(fh), 0);
+	bytes_read = incfs_kread(bfc->bc_file, &fh, sizeof(fh), 0);
 	if (bytes_read < 0)
 		return bytes_read;
 
@@ -579,8 +660,8 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
 		return -EPERM;
 
 	memset(&handler->md_buffer, 0, max_md_size);
-	bytes_read = incfs_kread(bfc, &handler->md_buffer, max_md_size,
-				 handler->md_record_offset);
+	bytes_read = incfs_kread(bfc->bc_file, &handler->md_buffer,
+				 max_md_size, handler->md_record_offset);
 	if (bytes_read < 0)
 		return bytes_read;
 	if (bytes_read < sizeof(*md_hdr))
@@ -646,22 +727,12 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
 	return res;
 }
 
-ssize_t incfs_kread(struct backing_file_context *bfc, void *buf, size_t size,
-		    loff_t pos)
+ssize_t incfs_kread(struct file *f, void *buf, size_t size, loff_t pos)
 {
-	const struct cred *old_cred = override_creds(bfc->bc_cred);
-	int ret = kernel_read(bfc->bc_file, buf, size, &pos);
-
-	revert_creds(old_cred);
-	return ret;
+	return kernel_read(f, buf, size, &pos);
 }
 
-ssize_t incfs_kwrite(struct backing_file_context *bfc, const void *buf,
-		     size_t size, loff_t pos)
+ssize_t incfs_kwrite(struct file *f, const void *buf, size_t size, loff_t pos)
 {
-	const struct cred *old_cred = override_creds(bfc->bc_cred);
-	int ret = kernel_write(bfc->bc_file, buf, size, &pos);
-
-	revert_creds(old_cred);
-	return ret;
+	return kernel_write(f, buf, size, &pos);
 }

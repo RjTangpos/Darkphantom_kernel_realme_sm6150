@@ -160,6 +160,7 @@ struct mount_info {
 
 	/* Number of blocks written since mount */
 	atomic_t mi_blocks_written;
+
 };
 
 struct data_file_block {

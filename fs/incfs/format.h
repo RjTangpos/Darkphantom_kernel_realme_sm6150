@@ -123,6 +123,7 @@ enum incfs_metadata_type {
 
 enum incfs_file_header_flags {
 	INCFS_FILE_COMPLETE = 1 << 0,
+	INCFS_FILE_MAPPED = 1 << 1,
 };
 
 /* Header included at the beginning of all metadata records on the disk. */
@@ -242,6 +243,16 @@ struct incfs_df_signature {
 	u64 hash_offset;
 };
 
+struct incfs_status {
+	struct incfs_md_header is_header;
+
+	__le32 is_data_blocks_written; /* Number of data blocks written */
+
+	__le32 is_hash_blocks_written; /* Number of hash blocks written */
+
+	__le32 is_dummy[6]; /* Spare fields */
+};
+
 /* State of the backing file. */
 struct backing_file_context {
 	/* Protects writes to bc_file */
@@ -315,6 +326,8 @@ int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags);
 
 int incfs_make_empty_backing_file(struct backing_file_context *bfc,
 				  incfs_uuid_t *uuid, u64 file_size);
+
+int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags);
 
 int incfs_make_empty_backing_file(struct backing_file_context *bfc,
 				  incfs_uuid_t *uuid, u64 file_size);

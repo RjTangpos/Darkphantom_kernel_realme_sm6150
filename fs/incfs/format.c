@@ -218,8 +218,7 @@ int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags)
 		return -EFAULT;
 
 	return write_to_bf(bfc, &flags, sizeof(flags),
-			   offsetof(struct incfs_file_header,
-				    fh_file_header_flags));
+			   offsetof(struct incfs_file_header, fh_flags));
 }
 
 /*

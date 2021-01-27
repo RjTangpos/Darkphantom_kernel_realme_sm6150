@@ -123,11 +123,6 @@ static void data_file_segment_init(struct data_file_segment *segment)
 	INIT_LIST_HEAD(&segment->reads_list_head);
 }
 
-static void data_file_segment_destroy(struct data_file_segment *segment)
-{
-	mutex_destroy(&segment->blockmap_mutex);
-}
-
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 {
 	struct data_file *df = NULL;

@@ -123,7 +123,6 @@ enum incfs_metadata_type {
 
 enum incfs_file_header_flags {
 	INCFS_FILE_COMPLETE = 1 << 0,
-	INCFS_FILE_MAPPED = 1 << 1,
 };
 
 /* Header included at the beginning of all metadata records on the disk. */

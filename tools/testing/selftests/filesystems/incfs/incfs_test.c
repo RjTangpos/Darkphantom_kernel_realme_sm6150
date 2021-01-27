@@ -2791,7 +2791,6 @@ int main(int argc, char *argv[])
 		MAKE_TEST(get_blocks_test),
 		MAKE_TEST(get_hash_blocks_test),
 		MAKE_TEST(large_file_test),
-		MAKE_TEST(mapped_file_test),
 	};
 #undef MAKE_TEST
 

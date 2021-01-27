@@ -235,9 +235,6 @@ struct data_file {
 	/* Total number of blocks, data + hash */
 	int df_total_block_count;
 
-	/* For mapped files, the offset into the actual file */
-	loff_t df_mapped_offset;
-
 	struct file_attr n_attr;
 
 	struct mtree *df_hash_tree;

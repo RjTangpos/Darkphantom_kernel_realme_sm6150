@@ -845,7 +845,8 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 		return -ENODATA;
 
 	segment = get_file_segment(df, block_index);
-	error = mutex_lock_interruptible(&segment->blockmap_mutex);
+
+	error = down_read_killable(&segment->rwsem);
 	if (error)
 		return error;
 
@@ -898,7 +899,9 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 		return wait_res;
 	}
 
-	down_read(&segment->rwsem);
+	error = down_read_killable(&segment->rwsem);
+	if (error)
+		return error;
 
 	/*
 	 * Re-read block's info now, it has just arrived and
@@ -1013,7 +1016,7 @@ int incfs_process_new_data_block(struct data_file *df,
 	if (block->compression == COMPRESSION_LZ4)
 		flags |= INCFS_BLOCK_COMPRESSED_LZ4;
 
-	error = mutex_lock_interruptible(&segment->blockmap_mutex);
+	error = down_read_killable(&segment->rwsem);
 	if (error)
 		return error;
 

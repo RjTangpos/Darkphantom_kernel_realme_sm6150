@@ -316,6 +316,9 @@ int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags);
 int incfs_make_empty_backing_file(struct backing_file_context *bfc,
 				  incfs_uuid_t *uuid, u64 file_size);
 
+int incfs_make_empty_backing_file(struct backing_file_context *bfc,
+				  incfs_uuid_t *uuid, u64 file_size);
+
 /* Reading stuff */
 int incfs_read_file_header(struct backing_file_context *bfc,
 			   loff_t *first_md_off, incfs_uuid_t *uuid,

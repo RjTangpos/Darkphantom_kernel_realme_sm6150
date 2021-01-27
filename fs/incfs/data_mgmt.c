@@ -1255,6 +1255,26 @@ out:
 	return error;
 }
 
+static int process_status_md(struct incfs_status *is,
+			     struct metadata_handler *handler)
+{
+	struct data_file *df = handler->context;
+
+	df->df_initial_data_blocks_written =
+		le32_to_cpu(is->is_data_blocks_written);
+	atomic_set(&df->df_data_blocks_written,
+		   df->df_initial_data_blocks_written);
+
+	df->df_initial_hash_blocks_written =
+		le32_to_cpu(is->is_hash_blocks_written);
+	atomic_set(&df->df_hash_blocks_written,
+		   df->df_initial_hash_blocks_written);
+
+	df->df_status_offset = handler->md_record_offset;
+
+	return 0;
+}
+
 int incfs_scan_metadata_chain(struct data_file *df)
 {
 	struct metadata_handler *handler = NULL;

@@ -452,6 +452,38 @@ int incfs_write_fh_to_backing_file(struct backing_file_context *bfc,
 	return write_to_bf(bfc, &fh, sizeof(fh), file_pos);
 }
 
+/*
+ * Write a backing file header for a mapping file
+ * It should always be called only on empty file.
+ */
+int incfs_write_mapping_fh_to_backing_file(struct backing_file_context *bfc,
+				incfs_uuid_t *uuid, u64 file_size, u64 offset)
+{
+	struct incfs_file_header fh = {};
+	loff_t file_pos = 0;
+
+	if (!bfc)
+		return -EFAULT;
+
+	fh.fh_magic = cpu_to_le64(INCFS_MAGIC_NUMBER);
+	fh.fh_version = cpu_to_le64(INCFS_FORMAT_CURRENT_VER);
+	fh.fh_header_size = cpu_to_le16(sizeof(fh));
+	fh.fh_original_offset = cpu_to_le64(offset);
+	fh.fh_data_block_size = cpu_to_le16(INCFS_DATA_FILE_BLOCK_SIZE);
+
+	fh.fh_mapped_file_size = cpu_to_le64(file_size);
+	fh.fh_original_uuid = *uuid;
+	fh.fh_flags = INCFS_FILE_MAPPED;
+
+	LOCK_REQUIRED(bfc->bc_mutex);
+
+	file_pos = incfs_get_end_offset(bfc->bc_file);
+	if (file_pos != 0)
+		return -EEXIST;
+
+	return write_to_bf(bfc, &fh, sizeof(fh), file_pos);
+}
+
 /* Write a given data block and update file's blockmap to point it. */
 int incfs_write_data_block_to_backing_file(struct backing_file_context *bfc,
 				     struct mem_range block, int block_index,

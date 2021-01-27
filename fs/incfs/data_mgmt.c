@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2019 Google LLC
@@ -123,6 +124,11 @@ static void data_file_segment_init(struct data_file_segment *segment)
 	INIT_LIST_HEAD(&segment->reads_list_head);
 }
 
+static void data_file_segment_destroy(struct data_file_segment *segment)
+{
+	mutex_destroy(&segment->blockmap_mutex);
+}
+
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 {
 	struct data_file *df = NULL;
@@ -184,6 +190,8 @@ out:
 
 void incfs_free_data_file(struct data_file *df)
 {
+	int i;
+
 	if (!df)
 		return;
 
@@ -836,8 +844,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 		return -ENODATA;
 
 	segment = get_file_segment(df, block_index);
-
-	error = down_read_killable(&segment->rwsem);
+	error = mutex_lock_interruptible(&segment->blockmap_mutex);
 	if (error)
 		return error;
 
@@ -856,17 +863,17 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 	if (is_data_block_present(&block)) {
 		*res_block = block;
 		return 0;
-	} else {
-		/* If it's not found, create a pending read */
-		if (timeout_ms != 0) {
-			read = add_pending_read(df, block_index);
-			if (!read)
-				return -ENOMEM;
-		} else {
-			log_block_read(mi, &df->df_id, block_index);
-			return -ETIME;
-		}
 	}
+
+	mi = df->df_mount_info;
+
+	if (timeout_ms == 0) {
+		log_block_read(mi, &df->df_id, block_index);
+		return -ETIME;
+	}
+
+	if (!read)
+		return -ENOMEM;
 
 	/* Wait for notifications about block's arrival */
 	wait_res =
@@ -890,7 +897,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 		return wait_res;
 	}
 
-	error = down_read_killable(&segment->rwsem);
+	error = mutex_lock_interruptible(&segment->blockmap_mutex);
 	if (error)
 		return error;
 
@@ -1007,7 +1014,7 @@ int incfs_process_new_data_block(struct data_file *df,
 	if (block->compression == COMPRESSION_LZ4)
 		flags |= INCFS_BLOCK_COMPRESSED_LZ4;
 
-	error = down_read_killable(&segment->rwsem);
+	error = mutex_lock_interruptible(&segment->blockmap_mutex);
 	if (error)
 		return error;
 
@@ -1028,8 +1035,6 @@ int incfs_process_new_data_block(struct data_file *df,
 	}
 	if (!error)
 		notify_pending_reads(mi, segment, block->block_index);
-
-	up_write(&segment->rwsem);
 
 unlock:
 	mutex_unlock(&segment->blockmap_mutex);
@@ -1308,7 +1313,7 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number)
 
 int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
 				struct incfs_pending_read_info *reads,
-				int reads_size, int *new_max_sn)
+				int reads_size)
 {
 	int reported_reads = 0;
 	struct pending_read *entry = NULL;
@@ -1340,9 +1345,7 @@ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
 		reads[reported_reads].block_index = entry->block_index;
 		reads[reported_reads].serial_number = entry->serial_number;
 		reads[reported_reads].timestamp_us = entry->timestamp_us;
-
-		if (entry->serial_number > *new_max_sn)
-			*new_max_sn = entry->serial_number;
+		/* reads[reported_reads].kind = INCFS_READ_KIND_PENDING; */
 
 		reported_reads++;
 		if (reported_reads >= reads_size)

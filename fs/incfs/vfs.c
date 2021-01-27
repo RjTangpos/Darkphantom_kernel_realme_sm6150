@@ -832,6 +832,39 @@ static struct dentry *open_or_create_index_dir(struct dentry *backing_dir)
 	return index_dentry;
 }
 
+static int read_single_page_timeouts(struct data_file *df, struct file *f,
+				     int block_index, struct mem_range range,
+				     struct mem_range tmp)
+{
+	struct mount_info *mi = df->df_mount_info;
+	u32 min_time_ms = 0;
+	u32 min_pending_time_ms = 0;
+	u32 max_pending_time_ms = U32_MAX;
+	int uid = current_uid().val;
+	int i;
+
+	spin_lock(&mi->mi_per_uid_read_timeouts_lock);
+	for (i = 0; i < mi->mi_per_uid_read_timeouts_size /
+		sizeof(*mi->mi_per_uid_read_timeouts); ++i) {
+		struct incfs_per_uid_read_timeouts *t =
+			&mi->mi_per_uid_read_timeouts[i];
+
+		if(t->uid == uid) {
+			min_time_ms = t->min_time_ms;
+			min_pending_time_ms = t->min_pending_time_ms;
+			max_pending_time_ms = t->max_pending_time_ms;
+			break;
+		}
+	}
+	spin_unlock(&mi->mi_per_uid_read_timeouts_lock);
+	if (max_pending_time_ms == U32_MAX)
+		max_pending_time_ms = mi->mi_options.read_timeout_ms;
+
+	return incfs_read_data_file_block(range, f, block_index,
+		min_time_ms, min_pending_time_ms, max_pending_time_ms,
+		tmp);
+}
+
 static int read_single_page(struct file *f, struct page *page)
 {
 	loff_t offset = 0;

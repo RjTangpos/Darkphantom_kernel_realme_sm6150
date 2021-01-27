@@ -33,6 +33,14 @@
 
 #define INCFS_ROOT_INODE 0
 
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define le16_to_cpu(x)          (x)
+#define le32_to_cpu(x)          (x)
+#define le64_to_cpu(x)          (x)
+#else
+#error Big endian not supported!
+#endif
+
 struct hash_block {
 	char data[INCFS_DATA_FILE_BLOCK_SIZE];
 };
@@ -2850,15 +2858,26 @@ static const char v1_file[] = {
 	0x01, 0x00, 0x00, 0x00,
 };
 
-#define TEST(statement, condition)					\
+#define TESTCOND(condition)						\
 	do {								\
-		statement;						\
 		if (!(condition)) {					\
 			ksft_print_msg("%s failed %d\n",		\
 				       __func__, __LINE__);		\
 			goto out;					\
 		}							\
-	} while(false)
+	} while (false)
+
+#define TEST(statement, condition)					\
+	do {								\
+		statement;						\
+		TESTCOND(condition);					\
+	} while (false)
+
+#define TESTEQUAL(statement, res)					\
+	TESTCOND((statement) == (res))
+
+#define TESTNE(statement, res)					\
+	TESTCOND((statement) != (res))
 
 static int compatibility_test(const char *mount_dir)
 {

@@ -1933,8 +1933,6 @@ static int file_open(struct inode *inode, struct file *file)
 	struct file *backing_file = NULL;
 	struct path backing_path = {};
 	int err = 0;
-	int flags = O_NOATIME | O_LARGEFILE |
-		(S_ISDIR(inode->i_mode) ? O_RDONLY : O_RDWR);
 
 	if (!mi)
 		return -EBADF;

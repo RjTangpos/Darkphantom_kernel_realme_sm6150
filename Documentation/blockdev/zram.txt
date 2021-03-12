@@ -225,6 +225,7 @@ line of text and contains the following stats separated by whitespace:
  dup_data_size	  deduplicated data size
  meta_data_size	  the amount of metadata allocated for deduplication feature
  huge_pages	  the number of incompressible pages
+ huge_pages_since the number of incompressible pages since zram set up
 
 File /sys/block/zram<id>/bd_stat
 

@@ -708,10 +708,7 @@ static int fsl_i2c_bus_recovery(struct i2c_adapter *adap)
 {
 	struct mpc_i2c *i2c = i2c_get_adapdata(adap);
 
-	if (i2c->has_errata_A004447)
-		mpc_i2c_fixup_A004447(i2c);
-	else
-		mpc_i2c_fixup(i2c);
+	mpc_i2c_fixup(i2c);
 
 	return 0;
 }

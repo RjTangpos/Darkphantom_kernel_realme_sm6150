@@ -3535,7 +3535,7 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
 
 	ifindex = READ_ONCE(po->ifindex);
 	sll->sll_family = AF_PACKET;
-	sll->sll_ifindex = ifindex;
+	sll->sll_ifindex = po->ifindex;
 	sll->sll_protocol = READ_ONCE(po->num);
 	sll->sll_pkttype = 0;
 	rcu_read_lock();
@@ -4638,7 +4638,7 @@ static int packet_seq_show(struct seq_file *seq, void *v)
 			   refcount_read(&s->sk_refcnt),
 			   s->sk_type,
 			   ntohs(READ_ONCE(po->num)),
-			   READ_ONCE(po->ifindex),
+			   po->ifindex,
 			   po->running,
 			   atomic_read(&s->sk_rmem_alloc),
 			   from_kuid_munged(seq_user_ns(seq), sock_i_uid(s)),

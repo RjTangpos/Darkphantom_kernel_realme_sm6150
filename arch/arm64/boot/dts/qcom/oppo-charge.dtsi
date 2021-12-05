@@ -390,7 +390,7 @@
 		qcom,oppo_batt_4400mv;
 		qcom,vooc-low-temp = <120>;
 		qcom,vooc-fw-type = <11>;
-		qcom,vooc_fw_update_newmethod;
+		//qcom,vooc_fw_update_newmethod;
 
 		pinctrl-names = "switch1_act_switch2_act", "switch1_sleep_switch2_sleep",
 				"switch1_act_switch3_act", "switch1_sleep_switch3_sleep",
@@ -424,7 +424,7 @@
 		qcom,oppo_batt_4400mv;
 		qcom,vooc-low-temp = <120>;
 		qcom,vooc-fw-type = <11>;
-		qcom,vooc_fw_update_newmethod;
+		//qcom,vooc_fw_update_newmethod;
 
 		pinctrl-names = "switch1_act_switch2_act", "switch1_sleep_switch2_sleep",
 				"switch1_act_switch3_act", "switch1_sleep_switch3_sleep",

@@ -774,18 +774,6 @@ static int __xipram chip_ready(struct map_info *map, unsigned long addr,
 	return map_word_equal(map, t, *expected);
 }
 
-static int __xipram chip_good(struct map_info *map, unsigned long addr,
-			      map_word *expected)
-{
-	struct cfi_private *cfi = map->fldrv_priv;
-	map_word *datum = expected;
-
-	if (cfi->quirks & CFI_QUIRK_DQ_TRUE_DATA)
-		datum = NULL;
-
-	return chip_ready(map, addr, datum);
-}
-
 static int get_chip(struct map_info *map, struct flchip *chip, unsigned long adr, int mode)
 {
 	DECLARE_WAITQUEUE(wait, current);
@@ -1638,8 +1626,8 @@ static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip,
 		}
 
 		/*
-		 * We check "time_after" and "!chip_good" before checking
-		 * "chip_good" to avoid the failure due to scheduling.
+		 * We check "time_after" and "!chip_ready" before checking
+		 * "chip_ready" to avoid the failure due to scheduling.
 		 */
 		if (time_after(jiffies, timeo) &&
 		    !chip_good(map, adr, &datum)) {
@@ -1650,7 +1638,7 @@ static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip,
 			break;
 		}
 
-		if (chip_good(map, adr, &datum))
+		if (chip_ready(map, adr, &datum))
 			break;
 
 		/* Latency issues. Drop the lock, wait a while and retry */
@@ -1894,13 +1882,13 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 		}
 
 		/*
-		 * We check "time_after" and "!chip_good" before checking
-		 * "chip_good" to avoid the failure due to scheduling.
+		 * We check "time_after" and "!chip_ready" before checking
+		 * "chip_ready" to avoid the failure due to scheduling.
 		 */
-		if (time_after(jiffies, timeo) && !chip_good(map, adr, &datum))
+		if (time_after(jiffies, timeo) && !chip_ready(map, adr, &datum))
 			break;
 
-		if (chip_good(map, adr, &datum)) {
+		if (chip_ready(map, adr, &datum)) {
 			xip_enable(map, chip, adr);
 			goto op_done;
 		}

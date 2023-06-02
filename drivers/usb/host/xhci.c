@@ -76,7 +76,7 @@ static bool td_on_ring(struct xhci_td *td, struct xhci_ring *ring)
  * handshake done).  There are two failure modes:  "usec" have passed (major
  * hardware flakeout), or the register reads as all-ones (hardware removed).
  */
-int xhci_handshake(void __iomem *ptr, u32 mask, u32 done, u64 timeout_us)
+int xhci_handshake(void __iomem *ptr, u32 mask, u32 done, int usec)
 {
 	u32	result;
 	int	ret;
@@ -84,7 +84,7 @@ int xhci_handshake(void __iomem *ptr, u32 mask, u32 done, u64 timeout_us)
 	ret = readl_poll_timeout_atomic(ptr, result,
 					(result & mask) == done ||
 					result == U32_MAX,
-					1, timeout_us);
+					1, usec);
 	if (result == U32_MAX)		/* card removed */
 		return -ENODEV;
 
@@ -202,7 +202,7 @@ int xhci_start(struct xhci_hcd *xhci)
  * Transactions will be terminated immediately, and operational registers
  * will be set to their defaults.
  */
-int xhci_reset(struct xhci_hcd *xhci, u64 timeout_us)
+int xhci_reset(struct xhci_hcd *xhci)
 {
 	u32 command;
 	u32 state;
@@ -235,12 +235,8 @@ int xhci_reset(struct xhci_hcd *xhci, u64 timeout_us)
 	if (xhci->quirks & XHCI_INTEL_HOST)
 		udelay(1000);
 
-<<<<<<< HEAD
 	ret = xhci_handshake_check_state(xhci, &xhci->op_regs->command,
 			CMD_RESET, 0, 10 * 1000 * 1000);
-=======
-	ret = xhci_handshake(&xhci->op_regs->command, CMD_RESET, 0, timeout_us);
->>>>>>> ASB-2022-08-05_4.14-stable
 	if (ret)
 		return ret;
 
@@ -253,7 +249,8 @@ int xhci_reset(struct xhci_hcd *xhci, u64 timeout_us)
 	 * xHCI cannot write to any doorbells or operational registers other
 	 * than status until the "Controller Not Ready" flag is cleared.
 	 */
-	ret = xhci_handshake(&xhci->op_regs->status, STS_CNR, 0, timeout_us);
+	ret = xhci_handshake(&xhci->op_regs->status,
+			STS_CNR, 0, 10 * 1000 * 1000);
 
 	for (i = 0; i < 2; i++) {
 		xhci->bus_state[i].port_c_suspend = 0;
@@ -707,7 +704,7 @@ static void xhci_stop(struct usb_hcd *hcd)
 	xhci->xhc_state |= XHCI_STATE_HALTED;
 	xhci->cmd_ring_state = CMD_RING_STATE_STOPPED;
 	xhci_halt(xhci);
-	xhci_reset(xhci, XHCI_RESET_SHORT_USEC);
+	xhci_reset(xhci);
 	spin_unlock_irq(&xhci->lock);
 
 	xhci_cleanup_msix(xhci);
@@ -771,7 +768,7 @@ void xhci_shutdown(struct usb_hcd *hcd)
 	xhci_halt(xhci);
 	/* Workaround for spurious wakeups at shutdown with HSW */
 	if (xhci->quirks & XHCI_SPURIOUS_WAKEUP)
-		xhci_reset(xhci, XHCI_RESET_SHORT_USEC);
+		xhci_reset(xhci);
 	spin_unlock_irq(&xhci->lock);
 
 	xhci_cleanup_msix(xhci);
@@ -1149,11 +1146,7 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 
 		xhci_dbg(xhci, "Stop HCD\n");
 		xhci_halt(xhci);
-<<<<<<< HEAD
 		retval = xhci_reset(xhci);
-=======
-		retval = xhci_reset(xhci, XHCI_RESET_LONG_USEC);
->>>>>>> ASB-2022-08-05_4.14-stable
 		spin_unlock_irq(&xhci->lock);
 		if (retval)
 			return retval;
@@ -5032,7 +5025,7 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 
 	xhci_dbg(xhci, "Resetting HCD\n");
 	/* Reset the internal HC memory state and registers. */
-	retval = xhci_reset(xhci, XHCI_RESET_LONG_USEC);
+	retval = xhci_reset(xhci);
 	if (retval)
 		return retval;
 	xhci_dbg(xhci, "Reset complete\n");

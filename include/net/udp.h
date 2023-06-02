@@ -174,12 +174,9 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
 				 struct udphdr *uh, udp_lookup_t lookup);
 int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
 void udp_v6_early_demux(struct sk_buff *skb);
-<<<<<<< HEAD
 
 struct sk_buff *__udp_gso_segment(struct sk_buff *gso_skb,
 				  netdev_features_t features);
-=======
->>>>>>> ASB-2022-12-05_4.14-stable
 
 static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
 {

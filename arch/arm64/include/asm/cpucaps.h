@@ -45,9 +45,15 @@
 #define ARM64_SSBD				25
 #define ARM64_MISMATCHED_CACHE_TYPE		26
 #define ARM64_SSBS				27
+<<<<<<< HEAD
 #define ARM64_HW_DBM				28
 #define ARM64_WORKAROUND_1188873		29
 #define ARM64_SPECTRE_BHB			30
+=======
+#define ARM64_WORKAROUND_1188873		28
+#define ARM64_SPECTRE_BHB			29
+#define ARM64_WORKAROUND_1742098		30
+>>>>>>> ASB-2022-12-05_4.14-stable
 
 #define ARM64_NCAPS				31
 

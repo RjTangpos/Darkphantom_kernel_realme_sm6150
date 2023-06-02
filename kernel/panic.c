@@ -28,13 +28,9 @@
 #include <linux/console.h>
 #include <linux/bug.h>
 #include <linux/ratelimit.h>
-<<<<<<< HEAD
 #define CREATE_TRACE_POINTS
 #include <trace/events/exception.h>
 #include <soc/qcom/minidump.h>
-=======
-#include <linux/sysfs.h>
->>>>>>> ASB-2023-02-05_4.14-stable
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -75,28 +71,6 @@ static __init int kernel_panic_sysctls_init(void)
 late_initcall(kernel_panic_sysctls_init);
 #endif
 
-<<<<<<< HEAD
-=======
-static atomic_t warn_count = ATOMIC_INIT(0);
-
-#ifdef CONFIG_SYSFS
-static ssize_t warn_count_show(struct kobject *kobj, struct kobj_attribute *attr,
-			       char *page)
-{
-	return sysfs_emit(page, "%d\n", atomic_read(&warn_count));
-}
-
-static struct kobj_attribute warn_count_attr = __ATTR_RO(warn_count);
-
-static __init int kernel_panic_sysfs_init(void)
-{
-	sysfs_add_file_to_group(kernel_kobj, &warn_count_attr.attr, NULL);
-	return 0;
-}
-late_initcall(kernel_panic_sysfs_init);
-#endif
-
->>>>>>> ASB-2023-02-05_4.14-stable
 static long no_blink(int state)
 {
 	return 0;
@@ -174,25 +148,14 @@ EXPORT_SYMBOL(nmi_panic);
 
 void check_panic_on_warn(const char *origin)
 {
-<<<<<<< HEAD
 	static atomic_t warn_count = ATOMIC_INIT(0);
-=======
-	unsigned int limit;
->>>>>>> ASB-2023-02-05_4.14-stable
 
 	if (panic_on_warn)
 		panic("%s: panic_on_warn set ...\n", origin);
 
-<<<<<<< HEAD
 	if (atomic_inc_return(&warn_count) >= READ_ONCE(warn_limit) && warn_limit)
 		panic("%s: system warned too often (kernel.warn_limit is %d)",
 		      origin, warn_limit);
-=======
-	limit = READ_ONCE(warn_limit);
-	if (atomic_inc_return(&warn_count) >= limit && limit)
-		panic("%s: system warned too often (kernel.warn_limit is %d)",
-		      origin, limit);
->>>>>>> ASB-2023-02-05_4.14-stable
 }
 
 /**

@@ -191,11 +191,8 @@ int xhci_start(struct xhci_hcd *xhci)
 		xhci->xhc_state = 0;
 		xhci->run_graceperiod = jiffies + msecs_to_jiffies(500);
 	}
-<<<<<<< HEAD
 
 	enable_irq(hcd->irq);
-=======
->>>>>>> ASB-2022-10-01_4.14-stable
 
 	return ret;
 }

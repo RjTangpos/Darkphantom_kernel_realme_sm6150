@@ -1087,14 +1087,12 @@ static inline int drbg_get_random_bytes(struct drbg_state *drbg,
 	return 0;
 }
 
-<<<<<<< HEAD
 static void drbg_async_seed(struct work_struct *work)
-=======
-static int drbg_seed_from_random(struct drbg_state *drbg)
->>>>>>> ASB-2022-07-05_4.14-stable
 {
 	struct drbg_string data;
 	LIST_HEAD(seedlist);
+	struct drbg_state *drbg = container_of(work, struct drbg_state,
+					       seed_work);
 	unsigned int entropylen = drbg_sec_strength(drbg->core->flags);
 	unsigned char entropy[32];
 	int ret;
@@ -1105,11 +1103,8 @@ static int drbg_seed_from_random(struct drbg_state *drbg)
 	drbg_string_fill(&data, entropy, entropylen);
 	list_add_tail(&data.list, &seedlist);
 
-	ret = drbg_get_random_bytes(drbg, entropy, entropylen);
-	if (ret)
-		goto out;
+	mutex_lock(&drbg->drbg_mutex);
 
-<<<<<<< HEAD
 	ret = drbg_get_random_bytes(drbg, entropy, entropylen);
 	if (ret)
 		goto unlock;
@@ -1123,13 +1118,8 @@ static int drbg_seed_from_random(struct drbg_state *drbg)
 
 unlock:
 	mutex_unlock(&drbg->drbg_mutex);
-=======
-	ret = __drbg_seed(drbg, &seedlist, true, DRBG_SEED_STATE_FULL);
->>>>>>> ASB-2022-07-05_4.14-stable
 
-out:
 	memzero_explicit(entropy, entropylen);
-	return ret;
 }
 
 /*
@@ -1430,11 +1420,6 @@ static int drbg_generate(struct drbg_state *drbg,
 			goto err;
 		/* 9.3.1 step 7.4 */
 		addtl = NULL;
-	} else if (rng_is_initialized() &&
-		   drbg->seeded == DRBG_SEED_STATE_PARTIAL) {
-		len = drbg_seed_from_random(drbg);
-		if (len)
-			goto err;
 	}
 
 	if (addtl && 0 < addtl->len)
@@ -1527,15 +1512,24 @@ static int drbg_generate_long(struct drbg_state *drbg,
 	return 0;
 }
 
+static void drbg_schedule_async_seed(struct random_ready_callback *rdy)
+{
+	struct drbg_state *drbg = container_of(rdy, struct drbg_state,
+					       random_ready);
+
+	schedule_work(&drbg->seed_work);
+}
+
 static int drbg_prepare_hrng(struct drbg_state *drbg)
 {
+	int err;
+
 	/* We do not need an HRNG in test mode. */
 	if (list_empty(&drbg->test_data.list))
 		return 0;
 
 	drbg->jent = crypto_alloc_rng("jitterentropy_rng", 0, 0);
 
-<<<<<<< HEAD
 	INIT_WORK(&drbg->seed_work, drbg_async_seed);
 
 	drbg->random_ready.owner = THIS_MODULE;
@@ -1557,9 +1551,6 @@ static int drbg_prepare_hrng(struct drbg_state *drbg)
 	}
 
 	return err;
-=======
-	return 0;
->>>>>>> ASB-2022-07-05_4.14-stable
 }
 
 /*
@@ -1653,16 +1644,10 @@ free_everything:
  */
 static int drbg_uninstantiate(struct drbg_state *drbg)
 {
-<<<<<<< HEAD
 	if (drbg->random_ready.func) {
 		del_random_ready_callback(&drbg->random_ready);
 		cancel_work_sync(&drbg->seed_work);
 	}
-=======
-	if (!IS_ERR_OR_NULL(drbg->jent))
-		crypto_free_rng(drbg->jent);
-	drbg->jent = NULL;
->>>>>>> ASB-2022-07-05_4.14-stable
 
 	if (!IS_ERR_OR_NULL(drbg->jent))
 		crypto_free_rng(drbg->jent);

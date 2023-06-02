@@ -806,8 +806,7 @@ The kernel command line parameter printk.devkmsg= overrides this and is
 a one-time setting until next reboot: once set, it cannot be changed by
 this sysctl interface anymore.
 
-pty
-===
+==============================================================
 
 See Documentation/filesystems/devpts.rst.
 

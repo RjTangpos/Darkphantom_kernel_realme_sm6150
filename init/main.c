@@ -642,7 +642,6 @@ asmlinkage __visible void __init start_kernel(void)
 	/*
 	 * For best initial stack canary entropy, prepare it after:
 	 * - setup_arch() for any UEFI RNG entropy and boot cmdline access
-<<<<<<< HEAD
 	 * - timekeeping_init() for ktime entropy used in rand_initialize()
 	 * - time_init() for making random_get_entropy() work on some platforms
 	 * - rand_initialize() to get any arch-specific entropy like RDRAND
@@ -652,13 +651,6 @@ asmlinkage __visible void __init start_kernel(void)
 	rand_initialize();
 	add_latent_entropy();
 	add_device_randomness(command_line, strlen(command_line));
-=======
-	 * - timekeeping_init() for ktime entropy used in random_init()
-	 * - time_init() for making random_get_entropy() work on some platforms
-	 * - random_init() to initialize the RNG from from early entropy sources
-	 */
-	random_init(command_line);
->>>>>>> ASB-2022-07-05_4.14-stable
 	boot_init_stack_canary();
 
 	sched_clock_postinit();

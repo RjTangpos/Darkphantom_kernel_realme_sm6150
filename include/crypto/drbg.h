@@ -139,14 +139,12 @@ struct drbg_state {
 	bool pr;		/* Prediction resistance enabled? */
 	bool fips_primed;	/* Continuous test primed? */
 	unsigned char *prev;	/* FIPS 140-2 continuous test value */
-<<<<<<< HEAD
 	struct work_struct seed_work;	/* asynchronous seeding support */
-=======
->>>>>>> ASB-2022-07-05_4.14-stable
 	struct crypto_rng *jent;
 	const struct drbg_state_ops *d_ops;
 	const struct drbg_core *core;
 	struct drbg_string test_data;
+	struct random_ready_callback random_ready;
 };
 
 static inline __u8 drbg_statelen(struct drbg_state *drbg)

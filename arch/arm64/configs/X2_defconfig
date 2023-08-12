@@ -748,3 +748,12 @@ CONFIG_OPTIMIZE_INLINING=y
 # CONFIG_ARM64_ERRATUM_858921 is not set
 # CONFIG_ARM64_PAN is not set
 CONFIG_LLVM_POLLY=y
+
+#Boeffla WL Blocker
+CONFIG_BOEFFLA_WL_BLOCKER=y
+
+#Enable Kernel Space battery saver
+CONFIG_BATTERY_SAVER=y
+
+# Enable Adreno Idler
+CONFIG_ADRENO_IDLER=y

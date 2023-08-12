@@ -863,6 +863,11 @@ ip_unprivileged_port_start - INTEGER
 
 	Default: 1024
 
+reserved_port_bind - BOOLEAN
+	If set, allows explicit bind requests to applications requesting
+	any port within the range of ip_local_reserved_ports.
+	Default: 1
+
 ip_nonlocal_bind - BOOLEAN
 	If set, allows processes to bind() to non-local IP addresses,
 	which can be quite useful - but may break some applications.
@@ -915,12 +920,14 @@ icmp_ratelimit - INTEGER
 icmp_msgs_per_sec - INTEGER
 	Limit maximal number of ICMP packets sent per second from this host.
 	Only messages whose type matches icmp_ratemask (see below) are
-	controlled by this limit.
+	controlled by this limit. For security reasons, the precise count
+	of messages per second is randomized.
 	Default: 1000
 
 icmp_msgs_burst - INTEGER
 	icmp_msgs_per_sec controls number of ICMP packets sent per second,
 	while icmp_msgs_burst controls the burst size of these packets.
+	For security reasons, the precise burst size is randomized.
 	Default: 50
 
 icmp_ratemask - INTEGER
@@ -1312,6 +1319,10 @@ igmp_link_local_mcast_reports - BOOLEAN
 	224.0.0.X range.
 	Default TRUE
 
+nf_ipv4_defrag_skip - BOOLEAN
+	Skip defragmentation per interface if set.
+	Default : 0 (always defrag)
+
 Alexey Kuznetsov.
 kuznet@ms2.inr.ac.ru
 
@@ -1530,6 +1541,11 @@ accept_ra_mtu - BOOLEAN
 
 	Functional default: enabled if accept_ra is enabled.
 			    disabled if accept_ra is disabled.
+
+accept_ra_prefix_route - BOOLEAN
+	Set the prefix route for the autoconfigured interface address
+
+	Functional default: enabled
 
 accept_redirects - BOOLEAN
 	Accept Redirects.

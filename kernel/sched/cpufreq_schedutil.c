@@ -152,7 +152,7 @@ static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
 static inline bool use_pelt(void)
 {
 #ifdef CONFIG_SCHED_WALT
-	return false;
+	return (!sysctl_sched_use_walt_cpu_util || walt_disabled);
 #else
 	return true;
 #endif
@@ -182,7 +182,7 @@ static void sugov_track_cycles(struct sugov_policy *sg_policy,
 	u64 delta_ns, cycles;
 	u64 next_ws = sg_policy->last_ws + sched_ravg_window;
 
-	if (use_pelt())
+	if (unlikely(!sysctl_sched_use_walt_cpu_util))
 		return;
 
 	upto = min(upto, next_ws);
@@ -201,7 +201,7 @@ static void sugov_calc_avg_cap(struct sugov_policy *sg_policy, u64 curr_ws,
 	u64 last_ws = sg_policy->last_ws;
 	unsigned int avg_freq;
 
-	if (use_pelt())
+	if (unlikely(!sysctl_sched_use_walt_cpu_util))
 		return;
 
 	BUG_ON(curr_ws < last_ws);
@@ -412,7 +412,7 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 	bool is_hiload;
 	unsigned long pl = sg_cpu->walt_load.pl;
 
-	if (use_pelt())
+	if (unlikely(!sysctl_sched_use_walt_cpu_util))
 		return;
 
 	if (is_rtg_boost)

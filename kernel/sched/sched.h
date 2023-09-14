@@ -2016,6 +2016,9 @@ static inline unsigned long capacity_orig_of(int cpu)
 	return cpu_rq(cpu)->cpu_capacity_orig;
 }
 
+extern unsigned int sysctl_sched_use_walt_cpu_util;
+extern unsigned int walt_disabled;
+
 static inline unsigned long task_util(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT

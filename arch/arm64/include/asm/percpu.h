@@ -137,17 +137,6 @@ PERCPU_RET_OP(add, add, ldadd)
  * which builds inside a module would mean messing directly with the preempt
  * count. If you do this, peterz and tglx will hunt you down.
  */
-#define this_cpu_cmpxchg_double_8(ptr1, ptr2, o1, o2, n1, n2)		\
-({									\
-	int __ret;							\
-	preempt_disable_notrace();					\
-	__ret = cmpxchg_double_local(	raw_cpu_ptr(&(ptr1)),		\
-					raw_cpu_ptr(&(ptr2)),		\
-					o1, o2, n1, n2);		\
-	preempt_enable_notrace();					\
-	__ret;								\
-})
-
 #define _pcp_protect(op, pcp, ...)					\
 ({									\
 	preempt_disable_notrace();					\
@@ -227,14 +216,6 @@ PERCPU_RET_OP(add, add, ldadd)
 #define this_cpu_xchg_8(pcp, val)	\
 	_pcp_protect_return(xchg_relaxed, pcp, val)
 
-#define this_cpu_cmpxchg_1(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
-#define this_cpu_cmpxchg_2(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
-#define this_cpu_cmpxchg_4(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
-#define this_cpu_cmpxchg_8(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
 
 #include <asm-generic/percpu.h>
 

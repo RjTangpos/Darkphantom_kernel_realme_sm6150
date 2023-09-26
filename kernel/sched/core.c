@@ -805,6 +805,9 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)
 {
+	if (task_on_rq_migrating(p))
+		flags |= ENQUEUE_MIGRATED;
+
 	if (task_contributes_to_load(p))
 		rq->nr_uninterruptible--;
 
@@ -1930,6 +1933,9 @@ out:
 
 bool cpus_share_cache(int this_cpu, int that_cpu)
 {
+	if (this_cpu == that_cpu)
+		return true;
+
 	return per_cpu(sd_llc_id, this_cpu) == per_cpu(sd_llc_id, that_cpu);
 }
 #endif /* CONFIG_SMP */
@@ -3472,8 +3478,7 @@ static noinline void __schedule_bug(struct task_struct *prev)
 		print_ip_sym(preempt_disable_ip);
 		pr_cont("\n");
 	}
-	if (panic_on_warn)
-		panic("scheduling while atomic\n");
+	check_panic_on_warn("scheduling while atomic");
 
 #ifdef CONFIG_PANIC_ON_SCHED_BUG
 	BUG();
@@ -5023,6 +5028,60 @@ out_put_task:
 
 char sched_lib_name[LIB_PATH_LENGTH];
 unsigned int sched_lib_mask_force;
+struct libname_node {
+	char *name;
+	struct list_head list;
+};
+static LIST_HEAD(__sched_lib_name_list);
+static DEFINE_SPINLOCK(__sched_lib_name_lock);
+
+/*
+ * A sysctl callback for handling 'sched_lib_name' operation. Except processing
+ * the data with the usual function 'proc_dostring()', additionally tokenize the
+ * input text with the dilimiter ',' and store in a linked list
+ * '__sched_lib_name_list'.
+ */
+int sysctl_sched_lib_name_handler(struct ctl_table *table, int write,
+				  void __user *buffer, size_t *lenp,
+				  loff_t *ppos)
+{
+	int ret;
+	char *curr, *next;
+	char dup_sched_lib_name[LIB_PATH_LENGTH];
+	struct libname_node *pos, *tmp;
+
+	ret = proc_dostring(table, write, buffer, lenp, ppos);
+	if (write && !ret) {
+		spin_lock(&__sched_lib_name_lock);
+		/* Free the old list. */
+		if (!list_empty(&__sched_lib_name_list)) {
+			list_for_each_entry_safe (
+				pos, tmp, &__sched_lib_name_list, list) {
+				list_del(&pos->list);
+				kfree(pos->name);
+				kfree(pos);
+			}
+		}
+
+		if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0) {
+			spin_unlock(&__sched_lib_name_lock);
+			return 0;
+		}
+
+		/* Split sched_lib_name by ',' and store in a linked list. */
+		strlcpy(dup_sched_lib_name, sched_lib_name, LIB_PATH_LENGTH);
+		next = dup_sched_lib_name;
+		while ((curr = strsep(&next, ",")) != NULL) {
+			pos = kmalloc(sizeof(struct libname_node), GFP_KERNEL);
+			pos->name = kstrdup(curr, GFP_KERNEL);
+			list_add_tail(&pos->list, &__sched_lib_name_list);
+		}
+		spin_unlock(&__sched_lib_name_lock);
+	}
+
+	return ret;
+}
+
 bool is_sched_lib_based_app(pid_t pid)
 {
 	const char *name = NULL;
@@ -5033,6 +5092,7 @@ bool is_sched_lib_based_app(pid_t pid)
 	bool found = false;
 	struct task_struct *p;
 	struct mm_struct *mm;
+	struct libname_node *pos;
 
 	if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0)
 		return false;
@@ -5054,6 +5114,17 @@ bool is_sched_lib_based_app(pid_t pid)
 	get_task_struct(p);
 	rcu_read_unlock();
 
+	spin_lock(&__sched_lib_name_lock);
+	/* Check if the task name equals any of the sched_lib_name list. */
+	list_for_each_entry (pos, &__sched_lib_name_list, list) {
+		if (!strncmp(p->comm, pos->name, LIB_PATH_LENGTH)) {
+			found = true;
+			spin_unlock(&__sched_lib_name_lock);
+			goto put_task_struct;
+		}
+	}
+	spin_unlock(&__sched_lib_name_lock);
+
 	mm = get_task_mm(p);
 	if (!mm)
 		goto put_task_struct;
@@ -5066,16 +5137,18 @@ bool is_sched_lib_based_app(pid_t pid)
 			if (IS_ERR(name))
 				goto release_sem;
 
-			strlcpy(tmp_lib_name, sched_lib_name, LIB_PATH_LENGTH);
-			lib_list = tmp_lib_name;
-			while ((libname = strsep(&lib_list, ","))) {
-				libname = skip_spaces(libname);
-				if (strnstr(name, libname,
-					strnlen(name, LIB_PATH_LENGTH))) {
+			/* Check if the file name includes any of the
+			 * sched_lib_name list. */
+			spin_lock(&__sched_lib_name_lock);
+			list_for_each_entry (pos, &__sched_lib_name_list,
+					     list) {
+				if (strnstr(name, pos->name,
+					    strnlen(name, LIB_PATH_LENGTH))) {
 					found = true;
-					goto release_sem;
+					break;
 				}
 			}
+			spin_unlock(&__sched_lib_name_lock);
 		}
 	}
 
@@ -5178,14 +5251,14 @@ SYSCALL_DEFINE3(sched_getaffinity, pid_t, pid, unsigned int, len,
 	if (len & (sizeof(unsigned long)-1))
 		return -EINVAL;
 
-	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
+	if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
 		return -ENOMEM;
 
 	ret = sched_getaffinity(pid, mask);
 	if (ret == 0) {
 		size_t retlen = min_t(size_t, len, cpumask_size());
 
-		if (copy_to_user(user_mask_ptr, mask, retlen))
+		if (copy_to_user(user_mask_ptr, cpumask_bits(mask), retlen))
 			ret = -EFAULT;
 		else
 			ret = retlen;
@@ -5213,12 +5286,8 @@ SYSCALL_DEFINE0(sched_yield)
 	schedstat_inc(rq->yld_count);
 	current->sched_class->yield_task(rq);
 
-	/*
-	 * Since we are going to call schedule() anyway, there's
-	 * no need to preempt or enable interrupts:
-	 */
 	preempt_disable();
-	rq_unlock(rq, &rf);
+	rq_unlock_irq(rq, &rf);
 	sched_preempt_enable_no_resched();
 
 	schedule();

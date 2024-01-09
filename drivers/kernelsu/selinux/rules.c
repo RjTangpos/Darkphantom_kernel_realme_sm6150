@@ -63,6 +63,7 @@ void apply_kernelsu_rules()
 		ksu_allowxperm(db, KERNEL_SU_DOMAIN, ALL, "blk_file", ALL);
 		ksu_allowxperm(db, KERNEL_SU_DOMAIN, ALL, "fifo_file", ALL);
 		ksu_allowxperm(db, KERNEL_SU_DOMAIN, ALL, "chr_file", ALL);
+		ksu_allowxperm(db, KERNEL_SU_DOMAIN, ALL, "file", ALL);
 	}
 
 	// we need to save allowlist in /data/adb/ksu
@@ -176,7 +177,8 @@ static int get_object(char *buf, char __user *user_object, size_t buf_sz,
 // reset avc cache table, otherwise the new rules will not take effect if already denied
 static void reset_avc_cache()
 {
-#ifndef KSU_COMPAT_USE_SELINUX_STATE
+#if ((!defined(KSU_COMPAT_USE_SELINUX_STATE)) || \
+        LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0))
 	avc_ss_reset(0);
 	selnl_notify_policyload(0);
 	selinux_status_update_policyload(0);
